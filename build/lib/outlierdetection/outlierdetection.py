@@ -44,6 +44,7 @@ def outlierdetection(data,method):
         mask = rule['initmask']
     except:
         mask = np.full_like(data,True,dtype=bool)
+        rule['initmask'] = mask.copy()
     ##########
     # 1. Compute
     if methodname in {'median','sigma'}:
