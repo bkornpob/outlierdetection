@@ -77,5 +77,5 @@ def outlierdetection(data,method):
     else:
         raise ValueError('method {0} does not support'.format(method))
     ##########
-    # 2. 
-    return mask
+    # 2. Update with the initial mask and return
+    return mask & rule['initmask']
