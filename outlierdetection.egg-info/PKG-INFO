@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: outlierdetection
-Version: 2.0.1
+Version: 3.0.0
 Summary: UNKNOWN
 Home-page: https://github.com/bkornpob/outlierdetection
 Author: Kornpob Bhirombhakdi
@@ -8,6 +8,8 @@ Author-email: kbhirombhakdi@stsci.edu
 License: UNKNOWN
 Description: # outlierdetection
         outlierdetection detects outliers given data and method.
+        
+        pip install outlierdetection
         
 Platform: UNKNOWN
 Classifier: Programming Language :: Python :: 3

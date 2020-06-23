@@ -1,3 +1,9 @@
+# Kornpob Bhirombhakdi
+# kbhirombhakdi@stsci.edu
+
+import numpy as np
+from scipy.signal import savgol_filter
+
 def outlierdetection(data,method):
     """
     # outlierdetection detects outliers given data and method.
@@ -8,30 +14,47 @@ def outlierdetection(data,method):
     # method = {'name': 'method_name',
     #           'rule': dictionary}
     #####
-    # 'method': 'median' for median clipping
-    # 'rule': {'minp':minp,'maxp':maxp,'niter':niter,'initmask':initmask}
-    # where [minp*median, max*median] defines good data (inclusive both sides) 
-    # and median iteratively defined by good data
-    # niter = integer 
-    # initmask = array parallel to data with True for good data to initialize the process
-    # initmask = array of True if not specified otherwise
-    # Note: median clipping is good for global detection given some knowledge about global boundaries.
-    # For example, if you have two epochs of a SN data, and we know that
+    # General rule description:
+    #   initmask = array parallel to data with True for good data to initialize the process
+    #              if not specified, set all data as good (True)
+    #   keepneg = False for rejecting all negatives, True otherwise
+    #   niter = integer for number of iterations
+    #   noise = array parallel to data specifying noise
     #####
-    # 'method': 'sigma' for sigma clipping
-    # 'rule': {'minp':minp,'maxp':maxp,'niter':niter,'initmask'} 
+    # Global Median Clipping
+    # method = {'name':'median',
+    #           'rule': {'minp':minp, 'maxp':maxp, 'niter':niter, 'initmask':initmask}
+    #          }
+    # where [minp*median, maxp*median] defines good data (inclusive both sides) 
+    # and median iteratively defined by good data
+    # Note: global median clipping is good for global detection given some knowledge about global boundaries.
+    # For example, you know that good data varied between 0.1*median and 10.*median.
+    #####
+    # Global Sigma Clipping
+    # method = {'name': 'sigma',
+    #           'rule': {'minp':minp, 'maxp':maxp, 'niter':niter, 'initmask':initmask} 
+    #          }
     # where [median - minp*std, median + maxp*std] defines good data (inclusive both sides)
     # where, respectively, median and std are median and standard deviation defined by good data iteratively.
-    # initmask = array parallel to data with True for good data to initialize the process
-    # initmask = array of True if not specified otherwise
-    # Note: sigma clipping is good for examining outliers using local variation.
+    # Note: global sigma clipping is good for examining outliers using global variation.
     #####
-    # 'method': 'sn' for signal-to-noise ratio clipping (not iterative)
-    # 'rule': {'minp':minp, 'noise':noise}
-    # where noise is an array parallel to data (as standard deviation, not variance)
+    # Local Sigma Clipping
+    # method = {'name':'sigmalocal',
+    #           'rule': {'sigma':sigma, 'noise':noise, 'keepneg':True, 'niter':niter, 'initmask':initmask, 'params':dictionary}
+    #          }
+    # where ratio <= sigma defines good data
+    # where ratio = (data - median) / noise
+    # and if 'keepneg':True, ratio = np.abs(ratio)
+    # where median = savgol_filter(data,**params)
+    #####
+    # Signal-to-Noise Clipping
+    # method = {'name': 'sn',
+    #           'rule': {'minp':minp, 'noise':noise, 'keepneg':True}
+    #          }
     # for calculating SN = data / noise
+    # if 'keepneg':True, SN = np.abs(SN)
     # good data has SN >= minp
-    # Note: sn clipping is good for excluding faint points, and data quality control.
+    # Note: SN clipping is examining individual variation, and data quality control.
     ##########
     """
     import numpy as np
@@ -41,7 +64,10 @@ def outlierdetection(data,method):
     methodname = method['name']
     rule = method['rule']
     try:
-        mask = rule['initmask']
+        mask = rule['initmask'].copy()
+        if not mask:
+            mask = np.full_like(data,True,dtype=bool)
+            rule['initmask'] = mask.copy()
     except:
         mask = np.full_like(data,True,dtype=bool)
         rule['initmask'] = mask.copy()
@@ -50,7 +76,7 @@ def outlierdetection(data,method):
     if methodname in {'median','sigma'}:
         minp,maxp = rule['minp'],rule['maxp']
         niter = rule['niter']
-        for i in range(rule['niter']):
+        for i in range(niter):
             gooddata = data[mask] # good data
             ### median or sigma
             if methodname=='median':
@@ -62,19 +88,38 @@ def outlierdetection(data,method):
                 median = np.median(gooddata)
                 minbound = median - minp*std
                 maxbound = median + maxp*std
-            else:
-                pass
             ### update mask
             m = np.argwhere((data >= minbound) & (data <= maxbound)).flatten() # good data
             mask = np.full_like(data,False,dtype=bool)
             mask[m] = True
+            print('{0} iter {1}'.format(methodname,i))
     elif methodname == 'sn':
         minp = rule['minp']
         noise = rule['noise']
+        keepneg = rule['keepneg']
         sn = data / noise
+        if keepneg:
+            sn = np.abs(sn)
         m = np.argwhere(sn >= minp).flatten()
         mask = np.full_like(data,False,dtype=bool)
         mask[m] = True
+        print('{0} complete'.format(methodname))
+    elif methodname == 'sigmalocal':
+        sigma = rule['sigma']
+        noise = rule['noise']
+        keepneg = rule['keepneg']
+        niter = rule['niter']
+        params = rule['params']
+        for i in range(niter):
+            tmpdata = data[mask]
+            tmpmedian = savgol_filter(tmpdata,**params)
+            tmpnoise = noise[mask]
+            ratio = (tmpdata - tmpmedian)/tmpnoise
+            if keepneg:
+                ratio = np.abs(ratio)
+            m = np.argwhere(ratio > sigma).flatten()
+            mask[m] = False
+            print('{0} iter {1}'.format(methodname,i))
     else:
         raise ValueError('method {0} does not support'.format(method))
     ##########

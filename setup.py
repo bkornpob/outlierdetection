@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name="outlierdetection",
-    version="2.0.1",
+    version="3.0.0",
     author="Kornpob Bhirombhakdi",
     author_email="kbhirombhakdi@stsci.edu",
     long_description=open("README.md").read(),
